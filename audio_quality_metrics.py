@@ -63,7 +63,9 @@ def extract_audio_quality_metrics(audio_path, sr=16000):
     metrics['snr_db'] = estimate_snr(y, sr)
     
     # 2. RMS ENERGY (Overall loudness)
-    rms = librosa.feature.rms(y=y)[0]
+    # Measure of the average magnitude of a signal
+    # Used to represent perceived loudness
+    rms = librosa.feature.rms(y=y)[0] # computes RMS energy frame by frame
     metrics['rms_mean'] = float(np.mean(rms))
     metrics['rms_std'] = float(np.std(rms))
     metrics['rms_db'] = float(20 * np.log10(np.mean(rms) + 1e-10))
@@ -102,14 +104,18 @@ def estimate_snr(y, sr, frame_length=2048, hop_length=512):
     """
     Estimate Signal-to-Noise Ratio using a simple energy-based method.
     Assumes lower energy frames are noise.
+
+    SNR measures how strong speach singal is to the background (higher SNR = clearer audio)
     """
     # Calculate frame energies
+    # Slices audio into frames
     frames = librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
     energy = np.sum(frames**2, axis=0)
     
-    # Use lower 20th percentile as noise estimate
+    # Use lower 20th percentile as noise estimate (so the background)
     noise_threshold = np.percentile(energy, 20)
     noise_frames = energy[energy <= noise_threshold]
+    # Singal - everything above the noise threshold
     signal_frames = energy[energy > noise_threshold]
     
     if len(noise_frames) == 0 or len(signal_frames) == 0:
@@ -130,7 +136,9 @@ def detect_clipping(y, threshold=0.99):
     Detect clipping (distortion from over-amplification).
     Returns the proportion of samples near maximum amplitude.
     """
+    # Sums the number of samples where audio is louder then given threshold (assumes that clipping occures)
     clipped_samples = np.sum(np.abs(y) >= threshold)
+    # Divide samples of clipping by the full length of the audio track
     clipping_rate = clipped_samples / len(y)
     return float(clipping_rate)
 
@@ -139,30 +147,49 @@ def calculate_dynamic_range(y):
     """
     Calculate dynamic range (difference between loudest and quietest parts).
     """
+    # Root mean square of energy 
+    # In short provides a meaningfull metric how strong signal is
+    # Provides loudness variation across the audio track
     rms = librosa.feature.rms(y=y)[0]
     rms_db = 20 * np.log10(rms + 1e-10)
     
     # Use percentiles to avoid outliers
+    # Avoids using "silent" or "clipped" samples
     loud = np.percentile(rms_db, 95)
     quiet = np.percentile(rms_db, 5)
     
+    # Calculate the difference
     return float(loud - quiet)
 
 
 def extract_spectral_features(y, sr):
     """
     Extract spectral features relevant to speech clarity.
+    Spectral features describes timbre (ex. differenting the speakers) and clarify of the audio.
+    Spectral features "describes" what you'd see in spectogram
     """
     # Spectral centroid (brightness)
+    # The mass center of the spectrum 
+    # Brigthness as a way to disctinquish between different voices
+    # A higher centroid = more high-frequency content
+    # Weighted mean of frequencies, weighted by magnitude.
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
     
     # Spectral rolloff (frequency below which 85% of energy is contained)
+    # Used to disquinguished harmoinc sound (lower values) and noise (higher values)
+    # Cumulative energy distribution, find cutoff frequency at 85%
     spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr, roll_percent=0.85)[0]
     
     # Spectral bandwidth
+    # "Spread" of the spectrum around centroid
+    # Think of it as "standard deviation" of the audio, where centroid would be "mean"
+    # More pure sound (narrower bandwidth), more noisy, complex sound (wider bandwidth)
+    # Standard deviation of frequencies weighted by magnitude.
     spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)[0]
     
     # Spectral flatness (how noise-like vs tone-like)
+    # Ratio of geometric mean to arithmetic mean of the power spectrum.
+    # Closer to white nose (high flatness), tonal/harmonic sounds (low flatness)
     spectral_flatness = librosa.feature.spectral_flatness(y=y)[0]
     
     return {
@@ -181,9 +208,11 @@ def speech_frequency_energy(y, sr):
     Higher values indicate better speech clarity.
     """
     # Create bandpass filter for speech frequencies
+    # If audio frequency is out of the range it gets reduced and "ignored"
     sos = signal.butter(4, [300, 3400], btype='band', fs=sr, output='sos')
     y_filtered = signal.sosfilt(sos, y)
     
+    # Computes mean squared energy in filtered signal and total.
     speech_energy = np.mean(y_filtered**2)
     total_energy = np.mean(y**2)
     
@@ -199,15 +228,18 @@ def estimate_silence_ratio(y, sr, top_db=30):
     """
     Estimate the proportion of the recording that is silence/quiet.
     """
+
     # Split into frames and determine which are silent
     intervals = librosa.effects.split(y, top_db=top_db)
     
     if len(intervals) == 0:
         return 1.0  # All silence
     
+    # If speech is detected it counts the frame as a "speech frame"
     speech_samples = sum(end - start for start, end in intervals)
     total_samples = len(y)
     
+    # 1 - (ratio of speech frames to total)
     silence_ratio = 1 - (speech_samples / total_samples)
     return float(silence_ratio)
 
@@ -216,9 +248,14 @@ def calculate_spectral_flux(y):
     """
     Calculate spectral flux (rate of change in spectrum).
     High flux can indicate noisy or unstable audio.
+    measures how quickly the spectrum changes over time
     """
+    # Gives spectrogram
+    # Takes magnitude spectrum
     S = np.abs(librosa.stft(y))
+    # Computes squared difference between consecutive frames.
     flux = np.sqrt(np.sum(np.diff(S, axis=1)**2, axis=0))
+    # Mean of these differences
     return float(np.mean(flux))
 
 
