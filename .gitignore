@@ -47,3 +47,11 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Folders with data
+data/
+czyszczone_nagrania/
+czyszczone_transkrypcje/
+czyszczone_transkrypcje_copy/
+transkrypty_czyszczonych_nagrań/
+transkrypty_czyszczonych_nagrań_copy/
