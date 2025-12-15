@@ -1,0 +1,1 @@
+batchalign transcribe --lang=pol D:\GitHub\Repos\narr_asr\data\czyszczone_język_polski\czyszczone_język_polski\czyszczone_nagrania D:\GitHub\Repos\narr_asr\data\batchalign\PL
