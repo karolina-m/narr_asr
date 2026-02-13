@@ -57,6 +57,12 @@ czyszczone_transkrypcje_copy/
 transkrypty_czyszczonych_nagrań/
 transkrypty_czyszczonych_nagrań_copy/
 transformed_files/
+ASR_results_replace_PL.csv
+ASR_results_noop_PL.csv
+ASR_results_remove_PL.csv
+ASR_results_replace_ENG.csv
+ASR_results_noop_ENG.csv
+ASR_results_remove_ENG.csv
 
 # pycache folders
 __pycache__/    
